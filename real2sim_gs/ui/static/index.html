@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="studio-token" content="__REAL2SIM_STUDIO_TOKEN__" />
+  <title>Real2Sim-GS Studio · 3DGS 重建与物理仿真实验室</title>
+  <link rel="stylesheet" href="/static/styles.css?v=13" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 3.5 7v10L12 22l8.5-5V7L12 2Z" />
+          <path d="M12 22V12" />
+          <path d="M20.5 7 12 12 3.5 7" />
+        </svg>
+      </div>
+      <div class="brand-copy">
+        <div class="brand-title-row">
+          <h1>Real2Sim-GS Studio</h1>
+          <span class="ver-chip">CUDA · SOTA</span>
+        </div>
+        <p class="subtitle">白盒 3DGS 重建 · 纯点云导出 · MuJoCo / Unity 物理仿真场景生成</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="doctor-pills" id="doctorPills" aria-label="运行环境状态"></div>
+
+      <button class="btn btn-ghost btn-sm" id="btnDoctorModal" type="button">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        环境体检
+      </button>
+
+      <div class="workspace-picker">
+        <label for="historyWorkspaceSelect">工作区</label>
+        <select id="historyWorkspaceSelect">
+          <option value="">选择已有场景预览...</option>
+        </select>
+      </div>
+
+      <button class="btn btn-ghost btn-sm" id="btnThemeToggle" type="button" title="切换极夜流光 / 科研白昼主题">
+        <svg class="ico" id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <span id="themeToggleLabel">极夜流光</span>
+      </button>
+
+      <button class="btn btn-amber btn-sm" id="btnQuickMock" type="button" title="无需视频与等待，3秒预览全流程反馈与导出">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        3秒 Mock 演练
+      </button>
+    </div>
+  </header>
+
+  <main class="studio-shell">
+    <!-- 左侧控制台 -->
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+        <!-- 0. 历史训练档案 -->
+        <section class="panel history-panel" id="historyPanel">
+          <div class="panel-head">
+            <h2>历史训练档案</h2>
+            <div class="history-head-right">
+              <span class="badge-glow" id="historyCountBadge">0 个场景</span>
+              <button class="btn-link btn-link-danger" id="btnCleanupUploads" type="button" title="清理拖拽上传产生的临时视频缓存文件">清理缓存</button>
+              <button class="btn-link" id="btnRefreshHistory" type="button">刷新</button>
+            </div>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="empty-hint">正在扫描本地 workspaces/ 历史记录...</div>
+          </div>
+        </section>
+
+        <!-- 1. 数据源与工作区 -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>1. 输入数据源与工作区</h2>
+            <select id="presetSelect" class="select-compact" aria-label="YAML 预设配置"></select>
+          </div>
+
+          <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="上传视频或图像">
+            <input type="file" id="videoFileInput" accept="video/*,.png,.jpg,.jpeg" hidden />
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>点击或拖拽环绕拍摄视频上传</strong>
+              <span id="uploadStatus">支持 MP4 / MOV / 图片集，或直接填写下方本地路径</span>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">输入路径 <code>input_path</code></span>
+              <input type="text" id="inputPath" placeholder="./sample_video.mp4 或图片目录" />
+            </label>
+            <label class="field">
+              <span class="field-label">输出工作区 <code>workspace_dir</code></span>
+              <input type="text" id="workspaceDir" placeholder="./workspaces/default_scene" />
+            </label>
+          </div>
+        </section>
+
+        <!-- 2. 一键智能配方与参数配合顾问 -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>2. 场景一键智能配方</h2>
+            <span class="badge-glow">选目标自动配参</span>
+          </div>
+
+          <div class="recipe-grid" id="recipeGrid">
+            <button type="button" class="recipe-card" data-recipe="pure_3dgs">
+              <div class="recipe-top">
+                <span class="recipe-icon cyan">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5.5" cy="8.5" r="1.5"/><circle cx="18.5" cy="8.5" r="1.5"/><circle cx="7" cy="17.5" r="1.5"/><circle cx="17" cy="17.5" r="1.5"/></svg>
+                </span>
+                <strong>纯 3DGS 重建 (旗舰)</strong>
+              </div>
+              <small>30k步 · 80万点 · 3阶SH极致画质，仅出标准 .ply</small>
+            </button>
+
+            <button type="button" class="recipe-card active" data-recipe="tabletop_sim">
+              <div class="recipe-top">
+                <span class="recipe-icon indigo">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                </span>
+                <strong>桌面抓取 (推荐)</strong>
+              </div>
+              <small>20k步 · 50万点 · 3阶SH + Marching Cubes 12 凸包</small>
+            </button>
+
+            <button type="button" class="recipe-card" data-recipe="indoor_nav">
+              <div class="recipe-top">
+                <span class="recipe-icon emerald">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <strong>室内大场景导航</strong>
+              </div>
+              <small>30k步 · 80万点 · 3阶SH + 2.5D 连续地面</small>
+            </button>
+
+            <button type="button" class="recipe-card" data-recipe="quick_check">
+              <div class="recipe-top">
+                <span class="recipe-icon amber">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+                </span>
+                <strong>快速真机验证</strong>
+              </div>
+              <small>5k步 · 20万点快速检验视角覆盖与 +Z 地面朝向</small>
+            </button>
+          </div>
+
+          <div class="recipe-summary" id="recipeSummary"></div>
+          <div class="advisor-stack" id="comboAdvisor" aria-live="polite"></div>
+        </section>
+
+        <!-- 3. 五阶段细化参数 -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>3. 五阶段算法与参数精调</h2>
+            <button class="btn-link" id="btnExpandStages" type="button">展开全部</button>
+          </div>
+
+          <!-- Stage 1 -->
+          <details class="stage-box" id="stageIngest">
+            <summary>
+              <span class="stage-sum-title"><span class="stage-idx">01</span>抽帧预处理 <code>ingest</code></span>
+              <span class="stage-sum-right"><span class="stage-badge" id="badgeIngest"></span><svg class="stage-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </summary>
+            <div class="stage-body">
+              <div class="form-grid two-col">
+                <label class="field">
+                  <span class="field-label">抽帧算法</span>
+                  <select id="ingestName"></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">清晰保留比例 <em class="rec-tag">推荐 0.8</em></span>
+                  <input type="number" id="ingestKeepRatio" step="0.05" min="0.1" max="1.0" value="0.8" />
+                </label>
+              </div>
+              <div class="field">
+                <span class="field-label">抽帧率 (fps) <em class="rec-tag">推荐 1.5–3</em></span>
+                <div class="slider-row">
+                  <input type="range" id="ingestFpsRange" min="0.5" max="10" step="0.5" value="2" />
+                  <input type="number" id="ingestFps" step="0.5" min="0.5" value="2" />
+                </div>
+                <span class="field-help">控制采样密度；总帧数控制在 80–160 帧时 COLMAP 速度与精度最均衡。</span>
+              </div>
+              <label class="field">
+                <span class="field-label">最大保留帧数 <code>max_frames</code> <em class="rec-tag">推荐 100–160</em></span>
+                <input type="number" id="ingestMaxFrames" min="4" value="150" />
+              </label>
+            </div>
+          </details>
+
+          <!-- Stage 2 -->
+          <details class="stage-box" id="stagePose">
+            <summary>
+              <span class="stage-sum-title"><span class="stage-idx">02</span>相机位姿解算 <code>pose</code></span>
+              <span class="stage-sum-right"><span class="stage-badge" id="badgePose"></span><svg class="stage-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </summary>
+            <div class="stage-body">
+              <div class="form-grid two-col">
+                <label class="field">
+                  <span class="field-label">解算器</span>
+                  <select id="poseName"></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">相机模型 / 后端</span>
+                  <input type="text" id="poseModelOrBackend" value="SIMPLE_RADIAL" />
+                </label>
+              </div>
+              <p class="field-help" id="poseTipText">COLMAP 默认使用 SIMPLE_RADIAL（单焦距 + 自动去畸变）防止畸变偏移；广角相机可选 OPENCV_FISHEYE。</p>
+              <label class="field" id="poseCmdRow" style="display:none;">
+                <span class="field-label">外部前馈论文命令模板</span>
+                <input type="text" id="poseCmdTemplate" placeholder="python infer.py --images {frames_dir} --out {pose_dir}" />
+              </label>
+            </div>
+          </details>
+
+          <!-- Stage 3 -->
+          <details class="stage-box" id="stageReconstruct" open>
+            <summary>
+              <span class="stage-sum-title"><span class="stage-idx">03</span>SOTA 3DGS 重建 <code>reconstruct</code></span>
+              <span class="stage-sum-right"><span class="stage-badge" id="badgeReconstruct"></span><svg class="stage-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </summary>
+            <div class="stage-body">
+              <div class="form-grid two-col">
+                <label class="field">
+                  <span class="field-label">重建内核</span>
+                  <select id="reconstructName"></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">致密化策略 <code>strategy</code></span>
+                  <select id="reconstructStrategy">
+                    <option value="mcmc">3DGS-MCMC (SGLD+重定位)</option>
+                    <option value="adc_absgs">AbsGS + 透明度重置</option>
+                  </select>
+                </label>
+              </div>
+              <p class="field-help" id="strategyTipText">3DGS-MCMC 将废球重定位到高频细节区域，在有限显存内画质最稳。</p>
+
+              <div class="field">
+                <span class="field-label">训练步数 <code>iterations</code> <em class="rec-tag">推荐 20k–30k</em></span>
+                <div class="slider-row">
+                  <input type="range" id="reconstructItersRange" min="500" max="40000" step="1000" value="20000" />
+                  <input type="number" id="reconstructIters" min="1" step="500" value="20000" />
+                </div>
+              </div>
+
+              <div class="field">
+                <span class="field-label">最大高斯点数 <code>max_points</code> <em class="rec-tag">室内推荐 50万–80万</em></span>
+                <div class="slider-row">
+                  <input type="range" id="reconstructMaxPointsRange" min="30000" max="1500000" step="50000" value="500000" />
+                  <input type="number" id="reconstructMaxPoints" min="10000" step="10000" value="500000" />
+                </div>
+                <span class="field-help">实景画面精细度核心参数：复杂桌面建议 50万点，室内大场景建议 80万–100万点。</span>
+              </div>
+
+              <div class="field">
+                <span class="field-label">球谐阶数 <code>sh_degree</code> <em class="rec-tag">SOTA 默认 3 阶</em></span>
+                <select id="reconstructShDegree">
+                  <option value="3" selected>3 阶完整球谐 (45 维高光反射·最精细)</option>
+                  <option value="2">2 阶球谐 (24 维)</option>
+                  <option value="1">1 阶轻量球谐 (9 维)</option>
+                  <option value="0">0 阶漫反射 (仅 RGB)</option>
+                </select>
+              </div>
+
+              <div class="toggle-list">
+                <label class="toggle-item">
+                  <span>SelectiveAdam 稀疏优化 <small>原生 CUDA / 稀疏动量更新，加速收敛且防动量漂移</small></span>
+                  <input type="checkbox" class="toggle-input" id="optSelectiveAdam" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>3D 双边网格曝光补偿 <small>仅手机严重自动曝光闪烁时开启；固定光源请关闭保真</small></span>
+                  <input type="checkbox" class="toggle-input" id="optBilateralGrid" />
+                </label>
+                <label class="toggle-item">
+                  <span>可微 SE(3) 位姿微调 <small>联合微调相机外参，拍摄有微抖或长轨迹时建议开启</small></span>
+                  <input type="checkbox" class="toggle-input" id="optPoseOpt" />
+                </label>
+              </div>
+
+              <details class="sub-drawer">
+                <summary>高级几何正则与外部论文参数</summary>
+                <div class="form-grid three-col">
+                  <label class="field">
+                    <span class="field-label">Mip 滤波</span>
+                    <input type="number" id="reconstructMipVar" step="0.0001" min="0" value="0" />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">扁平正则</span>
+                    <input type="number" id="reconstructFlatness" step="0.001" min="0" value="0.001" />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">深度平滑</span>
+                    <input type="number" id="reconstructDepthSmooth" step="0.001" min="0" value="0.002" />
+                  </label>
+                </div>
+                <p class="field-help">扁平正则压薄高斯球贴合物体表面；纯视觉可调至 0.002，抓取仿真建议 0.01。</p>
+                <label class="field" id="reconCmdRow" style="display:none; margin-top:6px;">
+                  <span class="field-label">外部论文命令模板</span>
+                  <input type="text" id="reconCmdTemplate" placeholder="python train.py -s {pose_dir} -o {output_ply}" />
+                </label>
+              </details>
+            </div>
+          </details>
+
+          <!-- Stage 4 -->
+          <details class="stage-box" id="stagePostprocess">
+            <summary>
+              <span class="stage-sum-title"><span class="stage-idx">04</span>后处理与碰撞网格 <code>postprocess</code></span>
+              <span class="stage-sum-right"><span class="stage-badge" id="badgePostprocess"></span><svg class="stage-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </summary>
+            <div class="stage-body">
+              <div class="toggle-list">
+                <label class="toggle-item">
+                  <span>漂浮噪点清洗 <code>clean_floaters</code></span>
+                  <input type="checkbox" class="toggle-input" id="ppClean" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>SOTA 水平 +Z 与曼哈顿正方向对齐 <code>align_gravity_scale</code></span>
+                  <input type="checkbox" class="toggle-input" id="ppAlign" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>提取物理碰撞网格 <code>extract_collision_mesh</code></span>
+                  <input type="checkbox" class="toggle-input" id="ppMesh" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>语义分割槽位 (需 SAM 环境)</span>
+                  <input type="checkbox" class="toggle-input" id="ppSegment" />
+                </label>
+              </div>
+
+              <div class="form-grid two-col" style="margin-top:4px;">
+                <label class="field">
+                  <span class="field-label">透明度过滤 <em class="rec-tag">推荐 0.02</em></span>
+                  <input type="number" id="ppMinOpacity" step="0.01" min="0" max="1" value="0.02" />
+                </label>
+                <label class="field">
+                  <span class="field-label">米制缩放 <code>scale_factor</code></span>
+                  <input type="number" id="ppScaleFactor" step="0.1" min="0.01" value="1.0" />
+                </label>
+                <label class="field">
+                  <span class="field-label">网格提取算法</span>
+                  <select id="ppMeshMethod">
+                    <option value="marching_cubes">3D Marching Cubes 等值面</option>
+                    <option value="heightfield">2.5D 高度场三角化</option>
+                    <option value="convex_hull">单凸包 (Convex Hull)</option>
+                  </select>
+                </label>
+                <div class="field">
+                  <span class="field-label">体素精度 <em class="rec-tag">48–72</em></span>
+                  <div class="slider-row">
+                    <input type="range" id="ppVoxelResRange" min="20" max="128" step="4" value="56" />
+                    <input type="number" id="ppVoxelRes" min="12" max="160" value="56" />
+                  </div>
+                </div>
+              </div>
+              <span class="field-help">尺度微调无需重训 3DGS，改好 scale_factor 后选「04 postprocess」断点重跑即可秒出新模型。</span>
+              <label class="field" id="ppPromptsRow" style="display:none;">
+                <span class="field-label">语义分割提示词</span>
+                <input type="text" id="ppPrompts" value="cup, box" />
+              </label>
+            </div>
+          </details>
+
+          <!-- Stage 5 -->
+          <details class="stage-box" id="stageExport" open>
+            <summary>
+              <span class="stage-sum-title"><span class="stage-idx">05</span>成果格式导出 <code>export</code></span>
+              <span class="stage-sum-right"><span class="stage-badge" id="badgeExport"></span><svg class="stage-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </summary>
+            <div class="stage-body">
+              <div class="toggle-list">
+                <label class="toggle-item">
+                  <span>导出纯 3DGS 标准点云 (.ply) <small>兼容 SuperSplat / Blender / CloudCompare / Inria</small></span>
+                  <input type="checkbox" class="toggle-input" id="expPly" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>导出 MuJoCo / MJWarp 场景包 <small>生成 scene.xml + 多凸包碰撞分解 collision_parts/</small></span>
+                  <input type="checkbox" class="toggle-input" id="expMujoco" checked />
+                </label>
+                <label class="toggle-item">
+                  <span>导出 Unity 左手系 Y-up 资产包 <small>坐标系自动转置，适配 UnityGaussianSplatting</small></span>
+                  <input type="checkbox" class="toggle-input" id="expUnity" />
+                </label>
+              </div>
+
+              <div class="form-grid two-col" id="mujocoExportOpts" style="margin-top:4px;">
+                <label class="field">
+                  <span class="field-label">场景名称</span>
+                  <input type="text" id="expModelName" value="real2sim_scene" />
+                </label>
+                <div class="field">
+                  <span class="field-label">物理凸包块数 <em class="rec-tag">6–16</em></span>
+                  <div class="slider-row">
+                    <input type="range" id="expConvexPartsRange" min="1" max="24" step="1" value="12" />
+                    <input type="number" id="expConvexParts" min="1" max="32" value="12" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <!-- 底部固定发射坞 -->
+      <div class="launch-dock">
+        <div class="dock-row">
+          <label class="field dock-select">
+            <span class="field-label">断点续跑起点</span>
+            <select id="fromStage">
+              <option value="">自动跳过已完成步骤</option>
+              <option value="ingest">01 ingest (重抽帧)</option>
+              <option value="pose">02 pose (重算位姿)</option>
+              <option value="reconstruct">03 reconstruct (重训 3DGS)</option>
+              <option value="postprocess">04 postprocess (重算对齐/网格)</option>
+              <option value="export">05 export (仅重新导出)</option>
+            </select>
+          </label>
+          <div class="dock-checks">
+            <label class="check-sm"><input type="checkbox" id="optForce" /> 强制重跑</label>
+            <label class="check-sm"><input type="checkbox" id="optMock" /> Mock 模拟</label>
+          </div>
+        </div>
+        <div class="dock-launch-btns">
+          <button class="btn btn-primary btn-launch" id="btnRunPipeline" type="button">
+            <svg class="ico" id="runBtnIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            <span id="runBtnText">启动构建管线</span>
+          </button>
+          <button class="btn btn-danger btn-stop" id="btnCancelJob" type="button" style="display:none;">
+            <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            <span id="cancelBtnText">停止训练</span>
+          </button>
+        </div>
+        <div class="job-status-line" id="jobStatusLine">就绪 · 等待提交任务</div>
+      </div>
+    </aside>
+
+    <!-- 右侧视口与遥测空间 -->
+    <section class="workspace-area">
+      <!-- 五阶段步进流水线 + 遥测 HUD -->
+      <section class="panel telemetry-panel" id="telemetryPanel">
+        <div class="stepper" id="stageStepper">
+          <div class="step" data-stage="ingest">
+            <div class="step-top"><span class="step-dot">1</span><div><strong>视频抽帧</strong><small>等待中</small></div></div>
+            <div class="step-progress-bar"><div class="step-progress-fill"></div></div>
+          </div>
+          <div class="step" data-stage="pose">
+            <div class="step-top"><span class="step-dot">2</span><div><strong>位姿解算</strong><small>等待中</small></div></div>
+            <div class="step-progress-bar"><div class="step-progress-fill"></div></div>
+          </div>
+          <div class="step" data-stage="reconstruct">
+            <div class="step-top"><span class="step-dot">3</span><div><strong>3DGS 重建</strong><small>等待中</small></div></div>
+            <div class="step-progress-bar"><div class="step-progress-fill"></div></div>
+          </div>
+          <div class="step" data-stage="postprocess">
+            <div class="step-top"><span class="step-dot">4</span><div><strong>对齐与网格</strong><small>等待中</small></div></div>
+            <div class="step-progress-bar"><div class="step-progress-fill"></div></div>
+          </div>
+          <div class="step" data-stage="export">
+            <div class="step-top"><span class="step-dot">5</span><div><strong>资产导出</strong><small>等待中</small></div></div>
+            <div class="step-progress-bar"><div class="step-progress-fill"></div></div>
+          </div>
+        </div>
+
+        <div class="telemetry-row">
+          <div class="telemetry-main">
+            <div class="overall-head">
+              <div class="overall-title">
+                <span class="live-dot" id="liveDot"></span>
+                <span id="telemetryDetail">交互式 3D 全息演示已就绪 · 点击右上角「3秒 Mock 演练」或左侧提交真实视频</span>
+              </div>
+              <div class="overall-nums">
+                <span class="mono-num" id="telemetryElapsed">00:00</span>
+                <span class="mono-pct" id="overallPct">0%</span>
+              </div>
+            </div>
+            <div class="overall-track">
+              <div class="overall-fill" id="overallBarFill"></div>
+            </div>
+            <div class="telemetry-kpis">
+              <span>训练速率: <strong id="telemetrySpeed">--</strong></span>
+              <span>预计剩余: <strong id="telemetryEta">--</strong></span>
+              <span>高斯点数: <strong id="telemetrySplats">--</strong></span>
+              <span>显存占用: <strong id="telemetryVram">--</strong></span>
+            </div>
+          </div>
+
+          <div class="sparkline-box" title="3DGS 实时训练 Loss 收敛趋势">
+            <div class="sparkline-head">
+              <span>Loss 收敛曲线</span>
+              <strong id="lossLatestText">--</strong>
+            </div>
+            <div class="sparkline-wrap">
+              <svg id="lossSparklineSvg" viewBox="0 0 220 48" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="lossAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
+                    <stop offset="100%" stop-color="#6366f1" stop-opacity="0.02" />
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="24" x2="220" y2="24" stroke="currentColor" stroke-opacity="0.16" stroke-dasharray="3 3" stroke-width="1" />
+                <polygon id="lossSparklineArea" fill="url(#lossAreaGrad)" points="" />
+                <polyline id="lossSparklineLine" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="" />
+              </svg>
+              <span id="lossEmptyText" class="sparkline-empty-label">真实训练时实时绘制 Loss</span>
+            </div>
+          </div>
+
+          <div class="log-panel">
+            <div class="log-panel-head">
+              <span>实时阶段日志</span>
+              <button type="button" class="btn-tiny-copy" id="btnCopyLogs">复制日志</button>
+            </div>
+            <div class="log-box" id="jobLogBox" aria-label="实时阶段日志">
+              <div class="log-line muted">等待任务日志输出...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="error-banner" id="errorDiagnosticBanner" role="alert" style="display:none;">
+          <div class="error-banner-top">
+            <div class="error-banner-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <strong id="errorBannerTitle">任务执行异常</strong>
+            </div>
+            <div class="error-banner-actions">
+              <button type="button" class="btn btn-error-copy btn-sm" id="btnCopyErrorReport">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span id="copyErrorBtnText">一键复制完整报错信息</span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnDismissError">收起</button>
+            </div>
+          </div>
+          <div class="error-banner-msg" id="errorBannerMsg"></div>
+          <details class="error-trace-details">
+            <summary>展开查看完整 Python 堆栈与配置上下文（可直接划选或一键复制）</summary>
+            <pre class="error-trace-pre" id="errorTracebackPre"></pre>
+          </details>
+        </div>
+      </section>
+
+      <!-- 3D 交互预览视口 -->
+      <section class="panel viewport-panel">
+        <div class="canvas-wrap">
+          <canvas id="viewport3d"></canvas>
+
+          <div class="hud-top-left">
+            <label class="hud-pill hud-pill-accent"><input type="checkbox" id="layerNeural" checked /> CUDA 实景渲染</label>
+            <label class="hud-pill"><input type="checkbox" id="layerSplats" checked /> 3DGS 椭球</label>
+            <label class="hud-pill"><input type="checkbox" id="layerMesh" /> 碰撞网格</label>
+            <label class="hud-pill"><input type="checkbox" id="layerConvex" /> MuJoCo 凸包</label>
+            <label class="hud-pill"><input type="checkbox" id="layerSpawn" checked /> +Z 轴 / 出生点</label>
+            <button type="button" class="hud-pill hud-pill-editor" id="btnToggleEditor" title="开启 SAM 3 物体分割与交互式移动/删除专用工具栏">
+              <span>✂ 物体分割与编辑</span>
+              <span class="ed-count-chip" id="editorCountBadge">0</span>
+            </button>
+            <button type="button" class="hud-pill hud-pill-align" id="btnToggleAlignPopover" title="自动找平地面、曼哈顿摆正正方向或手动微调 Roll / Pitch / Yaw / 高度">
+              <span>🧭 水平/正方向</span>
+            </button>
+          </div>
+
+          <div class="hud-top-right">
+            <span class="hud-stats" id="viewportStats">全息演示场景 · 420 点 · 8 相机</span>
+            <div class="cam-presets" role="group" aria-label="视角预设">
+              <button type="button" class="btn-hud btn-hud-cam" id="btnCycleCapturedCam" style="display:none;" title="切换到拍摄视频时的真实相机视角">实拍视角</button>
+              <button type="button" class="btn-hud" data-view="iso">等轴</button>
+              <button type="button" class="btn-hud" data-view="top">俯视</button>
+              <button type="button" class="btn-hud" data-view="front">正视</button>
+              <button type="button" class="btn-hud" data-view="side">侧视</button>
+              <button type="button" class="btn-hud" id="btnResetCamera">重置</button>
+              <button type="button" class="btn-hud" id="btnShowDemo" title="切换全息演示场 / 返回真实 .ply 场景">演示</button>
+            </div>
+          </div>
+
+          <!-- 专用物体分割与编辑工具栏 -->
+          <div class="editor-toolbar" id="editorToolbar" style="display:none;" role="toolbar" aria-label="物体分割与编辑专用工具栏">
+            <div class="ed-tb-group" role="group" aria-label="交互模式">
+              <button type="button" class="ed-tool-btn active" data-ed-mode="orbit" title="自由浏览 3D 场景 (不触发选点)">浏览</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="point" title="SAM 3 点选分割：左键加前景点(+)，Shift+左键或右键短点击加排除点(-)">点选+</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="box" title="SAM 3 框选分割：左键在画面拖出矩形框">框选</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="pick" title="在画面中直接点击已分割的 3D 物体选中并可自动聚焦">拾取</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="move" title="显示 3D XYZ 轴与贴桌平面手柄，拖拽移动选中物体">移动</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="rotate" title="显示 Z 轴圆环手柄，拖拽旋转选中物体（同步旋转 0-3 阶 SH 光照）">旋转</button>
+              <button type="button" class="ed-tool-btn" data-ed-mode="scale" title="拖拽缩放选中物体大小">缩放</button>
+            </div>
+
+            <span class="ed-tb-sep" aria-hidden="true"></span>
+
+            <div class="ed-tb-group" role="group" aria-label="快捷小功能">
+              <button type="button" class="ed-tool-btn" id="btnEdFocus" title="将相机镜头焦点立即对准当前选中物体">🎯 聚焦物体</button>
+              <label class="ed-tb-check" title="在视口或列表点击选中物体时自动把镜头焦点对准该物体">
+                <input type="checkbox" id="chkEdAutoFocus" checked />
+                <span>自动聚焦</span>
+              </label>
+              <button type="button" class="ed-tool-btn ed-tool-accent" id="btnEdExportObjPly" title="一键把当前选中的单个物体另存为独立 .ply（保留 0-3 阶完整球谐）">💾 另存单物 .ply</button>
+              <button type="button" class="ed-tool-btn" id="btnEdDuplicate" title="原地复制一份选中物体">复制</button>
+              <button type="button" class="ed-tool-btn" id="btnEdToggleVis" title="切换选中物体在预览中的隐藏/显示">显隐</button>
+              <button type="button" class="ed-tool-btn ed-tool-danger" id="btnEdDeleteRestore" title="删除选中物体或恢复已删除物体">删除</button>
+            </div>
+
+            <span class="ed-tb-sep" aria-hidden="true"></span>
+
+            <div class="ed-tb-group" role="group" aria-label="视图与烘焙">
+              <button type="button" class="ed-tool-btn" id="btnEdUndo" title="撤销上一步编辑 (Ctrl+Z)">↩ 撤销</button>
+              <button type="button" class="ed-tool-btn" id="btnEdRedo" title="重做编辑 (Ctrl+Y)">↪ 重做</button>
+              <label class="ed-tb-check" title="为当前选中物体叠染半透明高亮色调">
+                <input type="checkbox" id="chkEdHighlight" checked />
+                <span>高亮</span>
+              </label>
+              <label class="ed-tb-check" title="压暗未选中的场景背景以便观察边界">
+                <input type="checkbox" id="chkEdDimBg" />
+                <span>暗化背景</span>
+              </label>
+              <button type="button" class="ed-tool-btn ed-tool-primary" id="btnEdBake" title="将删除与位移烘焙写入 edited_splats.ply 并更新标准 .ply 导出">🔥 烘焙更新导出</button>
+            </div>
+          </div>
+
+          <!-- 右侧可折叠 SAM 3 分割与物体管理抽屉 -->
+          <aside class="editor-drawer" id="editorDrawer" style="display:none;">
+            <div class="ed-drawer-head">
+              <strong>3DGS 物体分割与场景图</strong>
+              <button type="button" class="btn-mini" id="btnEdCloseDrawer" title="收起右侧编辑面板">关闭编辑</button>
+            </div>
+
+            <div class="ed-drawer-scroll">
+              <div class="ed-card">
+                <div class="ed-card-head">
+                  <span>1. SAM 3 提示分割</span>
+                  <span class="ed-status-pill" id="edSam3Badge">检查中</span>
+                </div>
+                <div class="ed-prompt-row">
+                  <input type="text" id="edTextPrompt" placeholder="输入英文概念词如 cup, chair, keyboard（可配合点选）" />
+                  <button type="button" class="btn-mini" id="btnEdPreviewText">2D 预览</button>
+                </div>
+                <div class="ed-point-toggle-row">
+                  <span id="edPromptInfo">提示：切换到「点选+ / 框选」或在上方输入物体名</span>
+                  <button type="button" class="btn-link" id="btnEdClearPrompt">清空</button>
+                </div>
+                <div class="ed-seg-name-row">
+                  <input type="text" id="edNewObjName" placeholder="物体命名（可选，留空自动命名）" />
+                  <button type="button" class="btn btn-primary btn-sm" id="btnEdRunSeg3D">执行 3D 分割</button>
+                </div>
+                <div class="ed-seg-feedback" id="edFeedbackText"></div>
+
+                <details class="sub-drawer" style="margin-top:4px;">
+                  <summary>高级 SOTA 参数与 SAM 3 显存控制</summary>
+                  <div class="form-grid two-col" style="margin-top:4px;">
+                    <label class="field">
+                      <span class="field-label">主动视角数 (B³-Seg)</span>
+                      <select id="edNumViews">
+                        <option value="8">8 视角 (极速)</option>
+                        <option value="12" selected>12 视角 (推荐)</option>
+                        <option value="16">16 视角 (精细)</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">边界切分</span>
+                      <div class="ed-inline-checks">
+                        <label class="check-sm"><input type="checkbox" id="edUseSagd" checked /> SAGD 分裂</label>
+                        <label class="check-sm"><input type="checkbox" id="edUseGraphCut" checked /> 图割</label>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="ed-sam3-path-row">
+                    <input type="text" id="edSam3ModelPath" placeholder="自定义 SAM 3 权重目录（留空自动使用 models/sam3 或 HF）" />
+                    <button type="button" class="btn-mini" id="btnEdApplySam3Path">应用</button>
+                    <button type="button" class="btn-mini btn-hist-del" id="btnEdUnloadSam3" title="立即卸载 SAM 3 模型释放 12GB 显存">释放显存</button>
+                  </div>
+                  <p class="field-help" id="edSam3StatusHint"></p>
+                </details>
+              </div>
+
+              <div class="ed-card" id="edRefineBox" style="display:none;">
+                <div class="ed-card-head">
+                  <span>2. 实时边缘松紧与底面裁剪</span>
+                  <span class="tag-subtle">毫秒级无损</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">选区松紧度 <code>threshold</code> <strong id="edRefineThreshVal">0.50</strong></span>
+                  <input type="range" id="edRefineThreshold" min="0.10" max="0.92" step="0.02" value="0.50" />
+                </div>
+                <div class="field">
+                  <span class="field-label">底面 Z 高度防撕桌面裁剪 <strong id="edRefineZClipVal">0.00m</strong></span>
+                  <input type="range" id="edRefineZClip" min="-0.05" max="0.15" step="0.003" value="0.00" />
+                </div>
+              </div>
+
+              <div class="ed-card">
+                <div class="ed-card-head">
+                  <span>3. 已分割物体清单</span>
+                  <span class="ed-dirty-badge" id="edUnbakedBadge" style="display:none;">有未烘焙修改</span>
+                </div>
+                <div class="ed-obj-list" id="edObjectsList">
+                  <div class="empty-hint">暂无分割物体。使用左上方工具栏选点/框选或输入提示词提取物体。</div>
+                </div>
+              </div>
+
+              <div class="ed-card" id="edTransformBox" style="display:none;">
+                <div class="ed-card-head">
+                  <span id="edTransformTitle">4. 精确空间变换</span>
+                  <button type="button" class="btn-link" id="btnEdResetTransform">归零</button>
+                </div>
+                <div class="ed-tf-grid">
+                  <label class="field"><span>平移 X</span><input type="number" id="edTfTx" step="0.02" value="0" /></label>
+                  <label class="field"><span>平移 Y</span><input type="number" id="edTfTy" step="0.02" value="0" /></label>
+                  <label class="field"><span>平移 Z</span><input type="number" id="edTfTz" step="0.02" value="0" /></label>
+                  <label class="field"><span>旋转 Rx°</span><input type="number" id="edTfRx" step="5" value="0" /></label>
+                  <label class="field"><span>旋转 Ry°</span><input type="number" id="edTfRy" step="5" value="0" /></label>
+                  <label class="field"><span>旋转 Rz°</span><input type="number" id="edTfRz" step="5" value="0" /></label>
+                </div>
+                <div class="ed-tf-scale-row">
+                  <label class="field" style="flex:1;"><span>等比缩放 Scale</span><input type="number" id="edTfScale" step="0.05" min="0.05" max="20" value="1" /></label>
+                  <button type="button" class="btn btn-ghost btn-sm" id="btnEdApplyTf">应用数值</button>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- 地面水平与正方向校准悬浮面板 -->
+          <div class="align-popover" id="alignPopover" style="display:none;" role="dialog" aria-label="地面水平与正方向校准">
+            <div class="align-pop-head">
+              <strong>地面水平与正方向校准</strong>
+              <button type="button" class="btn-mini" id="btnCloseAlignPopover" title="关闭校准面板">关闭</button>
+            </div>
+            <div class="align-status-line" id="alignStatusSummary">请先加载一个场景工作区</div>
+            <div class="align-btn-stack">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAlignAuto" title="使用 3DGS 曲面法向 Cauchy-IRLS + 曼哈顿双墙正交摆正重算水平与正方向（不重训）">✨ SOTA 一键自动找平 + 摆正</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnAlignSetFront" title="将当前相机正视的水平朝向设为标准正前方 (-X / 正视 Yaw=0)">🎯 设当前视角为正前方</button>
+            </div>
+            <div class="align-aid-row">
+              <label class="ed-tb-check" title="在画面叠加水平/垂直辅助线，方便肉眼核对门框与地面是否完全水平">
+                <input type="checkbox" id="chkAlignCrosshair" />
+                <span>水平参考网格</span>
+              </label>
+              <button type="button" class="btn-mini" id="btnAlignLevelFront" title="将视口镜头置于绝对水平平视正前方 (Yaw=0°, Pitch=0°)">平视正前 0°</button>
+            </div>
+            <div class="align-manual-grid">
+              <label class="field"><span>横滚 Roll X°</span><input type="number" id="alignRollDeg" step="0.2" min="-45" max="45" value="0" /></label>
+              <label class="field"><span>俯仰 Pitch Y°</span><input type="number" id="alignPitchDeg" step="0.2" min="-45" max="45" value="0" /></label>
+              <label class="field"><span>偏航 Yaw Z°</span><input type="number" id="alignYawDeg" step="1" min="-180" max="180" value="0" /></label>
+              <label class="field"><span>地面高度 ΔZ(m)</span><input type="number" id="alignZOffset" step="0.01" min="-10" max="10" value="0" /></label>
+            </div>
+            <div class="align-manual-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="btnAlignApplyManual">应用增量微调</button>
+              <button type="button" class="btn-link" id="btnAlignResetInputs">归零</button>
+            </div>
+            <div class="align-feedback" id="alignFeedbackText"></div>
+          </div>
+
+          <div class="demo-badge" id="demoSceneBadge">全息演示场 · 拖拽可360°旋转 · 运行或选择历史工作区后自动切换真实 3DGS</div>
+          <div class="canvas-hint" id="canvasHintText">左键拖拽 360° 旋转 · 右键/Shift+左键平移 · 滚轮缩放 · 双击居中重置</div>
+        </div>
+      </section>
+
+      <!-- 底部成果检视与下载 -->
+      <section class="panel inspector-panel" id="inspectorPanel">
+        <div class="tabs-bar">
+          <div class="tabs">
+            <button class="tab active" data-tab="exportTab" type="button">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              成果导出与下载
+            </button>
+            <button class="tab" data-tab="metricsTab" type="button">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              评测与几何指标
+            </button>
+            <button class="tab" data-tab="framesTab" type="button">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              关键帧画廊
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btnToggleInspector" type="button">最大化 3D 视口</button>
+        </div>
+
+        <div class="inspector-body">
+          <div class="tab-panel active" id="exportTab">
+            <div class="export-split">
+              <div class="export-card">
+                <div class="export-card-head">
+                  <strong>纯 3DGS 点云成果</strong>
+                  <span class="tag-subtle">SuperSplat / Blender / Inria</span>
+                </div>
+                <div class="export-actions">
+                  <a class="btn btn-primary btn-sm" id="btnDownloadPurePly" href="#" target="_blank">下载标准 3DGS (.ply)</a>
+                  <a class="btn btn-ghost btn-sm" id="btnDownloadRawPly" href="#" target="_blank">原始相机系 3DGS (.ply)</a>
+                  <a class="btn btn-ghost btn-sm" id="btnDownloadCameras" href="#" target="_blank">相机位姿 (cameras.json)</a>
+                </div>
+              </div>
+
+              <div class="export-card">
+                <div class="export-card-head">
+                  <strong>物理仿真场景包</strong>
+                  <span class="tag-amber">MuJoCo / Unity</span>
+                </div>
+                <div class="export-actions">
+                  <a class="btn btn-amber btn-sm" id="btnDownloadZip" href="#" target="_blank">打包全部 05_export (.zip)</a>
+                  <a class="btn btn-ghost btn-sm" id="btnDownloadPly" href="#" target="_blank">MuJoCo 视觉 (.ply)</a>
+                  <a class="btn btn-ghost btn-sm" id="btnDownloadObj" href="#" target="_blank">碰撞网格 (.obj)</a>
+                  <button class="btn btn-ghost btn-sm" id="btnCopyXml" type="button">复制 scene.xml</button>
+                  <button class="btn btn-ghost btn-sm" id="btnCopyViewerCmd" type="button">复制预览命令</button>
+                </div>
+              </div>
+            </div>
+
+            <details class="xml-preview">
+              <summary>展开预览 MuJoCo <code>scene.xml</code> 配置源码</summary>
+              <pre class="code-box" id="sceneXmlBox">&lt;!-- 运行或加载工作区后此处显示导出的 MuJoCo scene.xml --&gt;</pre>
+            </details>
+          </div>
+
+          <div class="tab-panel" id="metricsTab">
+            <div class="metrics-grid" id="metricsGrid">
+              <div class="empty-hint">运行管线或选择历史工作区后，这里将显示渲染 PSNR / SSIM、去噪点数、地面法向对齐及碰撞体统计。</div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="framesTab">
+            <div class="frames-grid" id="framesGrid">
+              <div class="empty-hint">暂无关键帧数据。完成抽帧阶段后即可在此实时浏览清晰度评分与图像。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Doctor 环境体检弹窗 -->
+  <div class="modal-backdrop" id="doctorModal" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>运行环境与硬件体检 (real2sim doctor)</h3>
+        <button class="btn btn-ghost btn-sm" id="btnCloseDoctor" type="button" aria-label="关闭弹窗">关闭</button>
+      </div>
+      <table class="doctor-table">
+        <thead>
+          <tr><th>组件</th><th>状态</th><th>详情</th><th>说明与建议</th></tr>
+        </thead>
+        <tbody id="doctorTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 关键帧大图查看弹窗 -->
+  <div class="modal-backdrop" id="frameLightboxModal" style="display:none;">
+    <div class="modal modal-img">
+      <div class="modal-header">
+        <h3 id="lightboxCaption">关键帧预览</h3>
+        <button class="btn btn-ghost btn-sm" id="btnCloseLightbox" type="button" aria-label="关闭预览">关闭</button>
+      </div>
+      <img id="lightboxImg" src="" alt="关键帧放大预览" />
+    </div>
+  </div>
+
+  <!-- 工作区数据清理与删除弹窗 -->
+  <div class="modal-backdrop" id="deleteWorkspaceModal" style="display:none;">
+    <div class="modal modal-cleanup" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <div class="modal-header">
+        <h3 id="deleteModalTitle">清理空间与删除数据</h3>
+        <button class="btn btn-ghost btn-sm" id="btnCloseDeleteModal" type="button" aria-label="取消">关闭</button>
+      </div>
+      <p class="cleanup-summary" id="deleteModalSummary"></p>
+      <div class="cleanup-options">
+        <button class="cleanup-option" id="btnConfirmCleanIntermediate" type="button">
+          <div class="cleanup-opt-head">
+            <strong>仅清理中间过程缓存（推荐省空间）</strong>
+            <span class="pill ok" id="deleteIntermediateNote">约可释放 -- MB</span>
+          </div>
+          <small>删除抽帧图像 <code>01_frames/</code> 与 COLMAP 临时库，<strong>保留最终 .ply 点云、渲染图、碰撞网格及 MuJoCo / Unity 导出包</strong>（清理后将不再从训练断点续训）。</small>
+        </button>
+
+        <button class="cleanup-option danger" id="btnConfirmDeleteAll" type="button">
+          <div class="cleanup-opt-head">
+            <strong>彻底删除整个训练档案</strong>
+            <span class="pill danger" id="deleteAllNote">共释放 -- MB</span>
+          </div>
+          <small>永久删除该场景工作区全部文件（含导出模型与历史配置快照），操作不可恢复。</small>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/viewer3d.js?v=13"></script>
+  <script src="/static/app.js?v=13"></script>
+</body>
+</html>

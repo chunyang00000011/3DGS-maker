@@ -1,0 +1,55 @@
+# Experimental Pipeline Configuration: Feed-Forward Pose (VGGT) + 2DGS + SAM Segmentation
+# Demonstrates hot-swapping stages and exporting to both MuJoCo and Unity.
+
+io:
+  input_path: "./sample_video.mp4"
+  workspace_dir: "./workspaces/exp_2dgs_vggt"
+
+pipeline:
+  ingest:
+    name: "uniform_ffmpeg"
+    params:
+      fps: 2.0
+      max_frames: 120
+
+  pose:
+    name: "feedforward_slot"
+    params:
+      backend: "vggt"
+      repo_dir: "./third_party/vggt"
+      command_template: ""
+
+  reconstruct:
+    name: "twodgs_slot"
+    params:
+      repo_dir: "./third_party/2dgs"
+      command_template: ""
+      iterations: 30000
+
+  postprocess:
+    - name: "clean_floaters"
+      params:
+        min_opacity: 0.05
+        nb_neighbors: 16
+        std_ratio: 2.0
+    - name: "align_gravity_scale"
+      params:
+        scale_factor: 1.0
+        ransac_trials: 200
+        distance_threshold: 0.03
+    - name: "semantic_segment_slot"
+      params:
+        prompts: ["cup", "box"]
+    - name: "extract_collision_mesh"
+      params:
+        method: "heightfield"
+        grid_resolution: 48
+
+  export:
+    - name: "mujoco"
+      params:
+        model_name: "exp_2dgs_scene"
+        friction: [1.0, 0.005, 0.0001]
+    - name: "unity"
+      params:
+        scene_name: "exp_2dgs_scene"

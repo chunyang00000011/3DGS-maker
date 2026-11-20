@@ -1,0 +1,63 @@
+# Pure 3DGS High-Quality Visual Reconstruction Configuration
+# Skips physics collision mesh extraction and simulation packaging for fastest PLY export.
+
+io:
+  input_path: "./sample_video.mp4"
+  workspace_dir: "./workspaces/pure_3dgs_scene"
+
+pipeline:
+  ingest:
+    name: "sharpness_ffmpeg"
+    params:
+      fps: 2.0
+      max_frames: 180
+      sharpness_keep_ratio: 0.85
+
+  pose:
+    name: "colmap"
+    params:
+      camera_model: "SIMPLE_RADIAL"
+      # "auto": <=180 帧使用 exhaustive 全局匹配，>180 帧连续视频自动切 sequential 匹配
+      matcher: "auto"
+
+  reconstruct:
+    name: "gsplat_whitebox"
+    params:
+      iterations: 30000
+      strategy: "mcmc"
+      max_points: 800000
+      sh_degree: 3
+      selective_adam: true
+      enable_bilateral_grid: false
+      enable_pose_opt: false
+      background_mode: "random"
+      anisotropy_weight: 0.005
+      mcmc_opacity_weight: 0.005
+      mcmc_scale_weight: 0.005
+      mcmc_grow_ratio: 0.06
+      mcmc_noise_scale: 200.0
+      mip_3d_var: 0.0
+      flatness_weight: 0.0
+      depth_smooth_weight: 0.0
+      backend: "auto"
+
+  postprocess:
+    - name: "clean_floaters"
+      params:
+        min_opacity: 0.02
+        nb_neighbors: 16
+        std_ratio: 4.5
+        sor_mode: "scale_aware"
+        max_scale_ratio: 12.0
+    - name: "align_gravity_scale"
+      params:
+        scale_factor: 1.0
+        ransac_trials: 200
+        distance_threshold: 0.03
+        seed: 42
+
+  export:
+    - name: "ply_3dgs"
+      params:
+        scene_name: "scene_3dgs"
+        include_raw: true

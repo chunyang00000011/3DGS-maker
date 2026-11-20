@@ -1,0 +1,89 @@
+# Default Real-to-Sim 3DGS -> MuJoCo SOTA Pipeline Configuration
+# Daily usage: modify io.input_path and io.workspace_dir, or override via CLI (-i / -o).
+
+io:
+  input_path: "./sample_video.mp4"
+  workspace_dir: "./workspaces/default_scene"
+
+pipeline:
+  ingest:
+    name: "sharpness_ffmpeg"
+    params:
+      fps: 2.0
+      max_frames: 160
+      sharpness_keep_ratio: 0.85
+
+  pose:
+    name: "colmap"
+    params:
+      camera_model: "SIMPLE_RADIAL"
+      # "auto": <=180 帧使用 exhaustive 全局匹配，>180 帧连续视频自动切 sequential 匹配
+      matcher: "auto"
+
+  reconstruct:
+    name: "gsplat_whitebox"
+    params:
+      iterations: 20000
+      strategy: "mcmc"
+      max_points: 500000
+      sh_degree: 3
+      selective_adam: true
+      enable_bilateral_grid: false
+      enable_pose_opt: false
+      background_mode: "random"
+      lr_means: 0.00016
+      lr_means_final: 0.0000016
+      lr_scales: 0.005
+      lr_quats: 0.001
+      lr_opacities: 0.05
+      lr_sh_dc: 0.0025
+      lr_bilateral: 0.0005
+      lr_pose: 0.0001
+      mip_3d_var: 0.0
+      ssim_weight: 0.2
+      flatness_weight: 0.001
+      anisotropy_weight: 0.005
+      depth_smooth_weight: 0.001
+      mcmc_opacity_weight: 0.005
+      mcmc_scale_weight: 0.005
+      mcmc_grow_ratio: 0.06
+      mcmc_noise_scale: 200.0
+      bilateral_tv_weight: 0.01
+      bilateral_identity_weight: 0.1
+      densify_from_iter: 500
+      densify_interval: 100
+      grad_threshold: 0.0002
+      min_opacity: 0.005
+      opacity_reset_interval: 3000
+      backend: "auto"
+
+  postprocess:
+    - name: "clean_floaters"
+      params:
+        min_opacity: 0.02
+        nb_neighbors: 16
+        std_ratio: 4.5
+        sor_mode: "scale_aware"
+        max_scale_ratio: 12.0
+    - name: "align_gravity_scale"
+      params:
+        scale_factor: 1.0
+        ransac_trials: 200
+        distance_threshold: 0.03
+        seed: 42
+    - name: "extract_collision_mesh"
+      params:
+        method: "marching_cubes"
+        voxel_resolution: 56
+        iso_level: 0.15
+
+  export:
+    - name: "ply_3dgs"
+      params:
+        scene_name: "real2sim_scene"
+        include_raw: true
+    - name: "mujoco"
+      params:
+        model_name: "real2sim_scene"
+        friction: [1.0, 0.005, 0.0001]
+        convex_parts: 12

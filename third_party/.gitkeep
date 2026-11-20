@@ -1,0 +1,3 @@
+# Place cloned external paper repositories here (e.g., 2dgs, pgsr, vggt, dust3r).
+# Bridge them into the pipeline via SubprocessReconstructAdapter or FeedForwardPoseAdapter
+# without polluting real2sim_gs core modules.

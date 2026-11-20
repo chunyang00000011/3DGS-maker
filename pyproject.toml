@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real2sim-gs"
+version = "0.1.0"
+description = "Modular Real-to-Sim 3D Gaussian Splatting pipeline for MuJoCo and Unity simulation."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "torch>=2.1",
+    "pillow>=10.0",
+    "opencv-python>=4.8",
+    "scikit-image>=0.22",
+    "trimesh>=4.0",
+    "pydantic>=2.5",
+    "PyYAML>=6.0",
+    "typer>=0.12",
+    "rich>=13.7",
+    "fastapi>=0.110",
+    "uvicorn>=0.28",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+colmap = ["pycolmap>=3.10"]
+gsplat = ["gsplat>=1.4"]
+desktop = ["pywebview>=5.0"]
+sim = ["mujoco>=3.1"]
+coacd = ["coacd>=1.0"]
+sam3 = ["transformers>=4.58", "accelerate>=1.0", "safetensors>=0.4", "huggingface-hub>=0.25"]
+all = ["pycolmap>=3.10", "gsplat>=1.4", "pywebview>=5.0", "mujoco>=3.1", "coacd>=1.0", "transformers>=4.58", "accelerate>=1.0", "safetensors>=0.4", "huggingface-hub>=0.25"]
+
+[project.scripts]
+real2sim = "real2sim_gs.api.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["real2sim_gs*"]
+
+[tool.setuptools.package-data]
+"real2sim_gs.ui" = ["static/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

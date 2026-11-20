@@ -1,0 +1,16 @@
+workspaces/
+models/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+*.ckpt
+*.pt
+*.pth
+.DS_Store
+sample_video.mp4
